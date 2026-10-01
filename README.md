@@ -50,4 +50,4 @@ Incluye manifest, iconos propios y service worker (`web/sw.js`). La instalación
 - `lib/services/`: descubrimiento de assets, récords y puente de navegador.
 - `test/`: parejas, bloqueos, coincidencias, reinicio, victoria y flujo completo de interfaz en tamaños móvil/tablet/escritorio.
 
-Sin backend, cuentas, servicios externos ni dependencias de producción adicionales.
+Sin backend, cuentas ni servicios externos. La única dependencia adicional es la fuente estándar `cupertino_icons`, necesaria para evitar avisos de iconos en widgets internos de Flutter.
