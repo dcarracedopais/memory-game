@@ -20,7 +20,7 @@ flutter build web --no-web-resources-cdn --pwa-strategy=none
 python3 -m http.server 8080 --directory build/web
 ```
 
-Abre http://localhost:8080. Publica el contenido de `build/web` en un hosting estático HTTPS. No se ha configurado Vercel.
+Abre http://localhost:8080. Publica el contenido de `build/web` en un hosting estático HTTPS.
 
 La build estándar `flutter build web` también funciona. La variante anterior mantiene CanvasKit local y usa nuestro service worker en lugar del generado por Flutter.
 
