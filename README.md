@@ -24,6 +24,34 @@ Abre http://localhost:8080. Publica el contenido de `build/web` en un hosting es
 
 La build estándar `flutter build web` también funciona. La variante anterior mantiene CanvasKit local y usa nuestro service worker en lugar del generado por Flutter.
 
+## Desplegar en Vercel desde GitHub
+
+Importa `dcarracedopais/memory-game` en Vercel y conecta el repositorio con permisos de lectura. Configura la rama de producción como `main`: sus pushes generarán despliegues de producción y las otras ramas podrán generar previews.
+
+| Campo | Valor |
+| --- | --- |
+| Application Preset / Framework Preset | **Other** |
+| Root Directory | **Raíz del repositorio (`.`)**; deja el selector en su valor raíz, sin subcarpeta |
+| Build Command | `bash scripts/vercel-build.sh` |
+| Output Directory | `build/web` |
+| Install Command | `true` |
+
+Activa **Override** en los campos de comandos y salida si la interfaz lo requiere. `vercel.json` ya fija estos mismos valores (y tiene prioridad sobre los ajustes de build del panel). `true` no instala paquetes Node: el script se ocupa de las dependencias Dart. No se necesita `package.json`, variables secretas, backend ni una acción de GitHub adicional.
+
+El script descarga el SDK oficial **Flutter 3.41.4** en una carpeta temporal, ejecuta `flutter pub get --enforce-lockfile` y construye la versión release con CanvasKit local y el service worker propio. No depende de Flutter preinstalado. Necesita Bash, Git, las herramientas Linux habituales y acceso a GitHub y a los repositorios oficiales de Flutter/Dart durante la build. La descarga del SDK se repite en cada build para mantener la configuración sencilla. Para actualizar Flutter, cambia `FLUTTER_VERSION` en `scripts/vercel-build.sh`, actualiza el lockfile si corresponde y vuelve a verificar.
+
+Para reproducir exactamente la build de Vercel en Linux:
+
+```bash
+bash scripts/vercel-build.sh
+```
+
+El SDK temporal se elimina al terminar; solo se publica `build/web`. El fallback SPA devuelve `index.html` para rutas sin archivo, respetando primero los archivos existentes (JS, imágenes, manifest y service worker). El base href `/` permite cargar assets al abrir o recargar una ruta profunda. La aplicación actual usa el menú interno de Flutter y no necesita rutas adicionales.
+
+Los archivos se revalidan antes de reutilizarse desde la caché HTTP para evitar versiones antiguas entre despliegues. Esto mantiene la caché offline del service worker; sigue incrementando su versión `CACHE` cuando publiques cambios. Vercel proporciona HTTPS, necesario para instalar la PWA. Los récords pertenecen al origen del navegador: localhost, previews y dominio de producción tienen registros separados.
+
+Referencias: [configuración de Vercel](https://vercel.com/docs/project-configuration/vercel-json), [ajustes de build](https://vercel.com/docs/builds/configure-a-build) y [build y despliegue Flutter Web](https://docs.flutter.dev/deployment/web).
+
 ## Cartas personalizadas
 
 Añade imágenes PNG, JPG/JPEG, WebP o GIF directamente en `assets/cards/` y vuelve a generar la aplicación. No necesitas cambiar código ni declarar cada archivo. Todas las imágenes disponibles participan en la selección aleatoria; cada partida elige las necesarias sin repetir identidades. Si faltan imágenes, se completan con placeholders de letras mayúsculas. Las imágenes se muestran sin distorsión. Consulta `assets/cards/README.md`.
