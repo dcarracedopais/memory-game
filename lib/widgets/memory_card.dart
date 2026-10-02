@@ -80,11 +80,14 @@ class CardTile extends StatelessWidget {
                                     ),
                                   ),
                           )
-                        : const Center(
-                            child: Icon(
-                              Icons.auto_awesome,
-                              color: Color(0xFFFFE9A9),
-                              size: 30,
+                        : LayoutBuilder(
+                            builder: (_, constraints) => Center(
+                              child: Icon(
+                                Icons.auto_awesome,
+                                color: const Color(0xFFFFE9A9),
+                                size: (constraints.biggest.shortestSide * .35)
+                                    .clamp(20, 56),
+                              ),
                             ),
                           ),
                   ),
@@ -97,12 +100,19 @@ class CardTile extends StatelessWidget {
     ),
   );
   Widget _letter(String letter) => Center(
-    child: Text(
-      letter,
-      style: const TextStyle(
-        fontSize: 32,
-        fontWeight: FontWeight.w800,
-        color: Color(0xFF7961BC),
+    child: FractionallySizedBox(
+      widthFactor: .7,
+      heightFactor: .7,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          letter,
+          style: const TextStyle(
+            fontSize: 64,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF7961BC),
+          ),
+        ),
       ),
     ),
   );

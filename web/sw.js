@@ -1,5 +1,5 @@
 // Bump this version whenever publishing a new build.
-const CACHE = 'merimemory-v1';
+const CACHE = 'merimemory-v2';
 const CORE = ['./', 'index.html', 'flutter_bootstrap.js', 'flutter.js', 'main.dart.js', 'meri.js', 'manifest.json', 'assets/AssetManifest.bin', 'assets/FontManifest.json', 'assets/fonts/MaterialIcons-Regular.otf', 'assets/NOTICES', 'canvaskit/canvaskit.js', 'canvaskit/canvaskit.wasm', 'icons/Icon-192.png', 'icons/Icon-512.png'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(CORE)));

@@ -52,6 +52,16 @@ Los archivos se revalidan antes de reutilizarse desde la caché HTTP para evitar
 
 Referencias: [configuración de Vercel](https://vercel.com/docs/project-configuration/vercel-json), [ajustes de build](https://vercel.com/docs/builds/configure-a-build) y [build y despliegue Flutter Web](https://docs.flutter.dev/deployment/web).
 
+## Presentación y tablero responsive
+
+La entrada muestra una portada con acceso al sonido y el botón **Jugar**. Después se elige la dificultad. Desde la partida o la victoria se puede volver a la selección; la flecha del menú vuelve a la portada. **Jugar otra vez** mantiene la dificultad.
+
+El tablero compara filas y columnas según el número de cartas y el ancho y alto disponibles. Maximiza el tamaño de las cartas, penaliza filas incompletas y mantiene una proporción de 0,88 y un máximo de 190 px de ancho. Centra el conjunto y la última fila; las parejas desaparecidas conservan su espacio. En horizontal, los controles pasan al lateral cuando hay ancho suficiente. Solo ventanas excepcionalmente pequeñas necesitan desplazamiento dentro del tablero.
+
+Los fondos usan gradientes y formas suaves dibujadas por Flutter, sin imágenes ni dependencias nuevas. Durante la partida son más discretos. El service worker usa la versión de caché `merimemory-v2` para esta iteración.
+
+Los tests cubren también el centrado y los límites del tablero para todas las dificultades en 320×568, 390×844, 768×1024, 1440×900 y 844×390, además de la navegación desde la portada y la conservación de cartas al girar el dispositivo.
+
 ## Cartas personalizadas
 
 Añade imágenes PNG, JPG/JPEG, WebP o GIF directamente en `assets/cards/` y vuelve a generar la aplicación. No necesitas cambiar código ni declarar cada archivo. Todas las imágenes disponibles participan en la selección aleatoria; cada partida elige las necesarias sin repetir identidades. Si faltan imágenes, se completan con placeholders de letras mayúsculas. Las imágenes se muestran sin distorsión. Consulta `assets/cards/README.md`.

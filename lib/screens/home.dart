@@ -4,6 +4,9 @@ import '../services/assets.dart';
 import '../services/browser.dart';
 import '../services/records.dart';
 import '../widgets/memory_card.dart';
+import '../widgets/board_layout.dart';
+import '../widgets/game_background.dart';
+import '../widgets/cover.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,6 +20,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<String> faces = [];
   MemoryGame? game;
   bool loading = true;
+  bool showingCover = true;
   @override
   void initState() {
     super.initState();
@@ -36,6 +40,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _start() {
     game?.dispose();
     setState(() {
+      showingCover = false;
       game = MemoryGame(difficulty, faces);
     });
   }
@@ -44,6 +49,7 @@ class _HomeScreenState extends State<HomeScreen> {
     game?.dispose();
     setState(() {
       game = null;
+      showingCover = false;
     });
   }
 
@@ -54,76 +60,131 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    body: SafeArea(
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 850),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.auto_awesome, color: Color(0xFF7961BC)),
-                    const SizedBox(width: 8),
-                    const Expanded(
-                      child: Text(
-                        'MeriMemory',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 23,
+  Widget build(BuildContext context) => PopScope(
+    canPop: showingCover,
+    onPopInvokedWithResult: (didPop, _) {
+      if (didPop) return;
+      if (game != null) {
+        _menu();
+      } else {
+        setState(() => showingCover = true);
+      }
+    },
+    child: Scaffold(
+      body: GameBackground(
+        quiet: game != null,
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxHeight < 500;
+              return Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: game == null ? 620 : 1100,
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.all(compact ? 8 : 16),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            if (!showingCover && game == null)
+                              IconButton(
+                                tooltip: 'Volver a la portada',
+                                onPressed: () =>
+                                    setState(() => showingCover = true),
+                                icon: const Icon(Icons.arrow_back_rounded),
+                              ),
+                            if (!showingCover) ...[
+                              const Icon(
+                                Icons.auto_awesome,
+                                color: Color(0xFF7961BC),
+                              ),
+                              const SizedBox(width: 8),
+                              const Expanded(
+                                child: Text(
+                                  'MeriMemory',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 23,
+                                  ),
+                                ),
+                              ),
+                            ] else
+                              const Spacer(),
+                            IconButton(
+                              tooltip: records.sound
+                                  ? 'Desactivar sonido'
+                                  : 'Activar sonido',
+                              onPressed: () {
+                                setState(records.toggleSound);
+                                if (records.sound) playSound('flip');
+                              },
+                              icon: Icon(
+                                records.sound
+                                    ? Icons.volume_up_rounded
+                                    : Icons.volume_off_rounded,
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: records.sound
-                          ? 'Desactivar sonido'
-                          : 'Activar sonido',
-                      onPressed: () {
-                        setState(records.toggleSound);
-                        if (records.sound) playSound('flip');
-                      },
-                      icon: Icon(
-                        records.sound
-                            ? Icons.volume_up_rounded
-                            : Icons.volume_off_rounded,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Expanded(
-                  child: game == null
-                      ? _menuBody()
-                      : ListenableBuilder(
-                          listenable: game!,
-                          builder: (_, _) => _gameBody(game!),
+                        SizedBox(height: compact ? 4 : 12),
+                        Expanded(
+                          child: game == null
+                              ? showingCover
+                                    ? _centeredContent(
+                                        GameCover(
+                                          onPlay: () => setState(
+                                            () => showingCover = false,
+                                          ),
+                                        ),
+                                      )
+                                    : _menuBody()
+                              : ListenableBuilder(
+                                  listenable: game!,
+                                  builder: (_, _) => _gameBody(game!),
+                                ),
                         ),
+                      ],
+                    ),
+                  ),
                 ),
-              ],
-            ),
+              );
+            },
           ),
         ),
       ),
     ),
   );
-  Widget _menuBody() => SingleChildScrollView(
-    child: Column(
+
+  Widget _centeredContent(Widget child, {double verticalPadding = 16}) =>
+      LayoutBuilder(
+        builder: (_, constraints) => SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: verticalPadding),
+                child: child,
+              ),
+            ),
+          ),
+        ),
+      );
+  Widget _menuBody() => _centeredContent(
+    Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SizedBox(height: 30),
-        const Icon(Icons.favorite_rounded, size: 64, color: Color(0xFFE99794)),
-        const SizedBox(height: 16),
+        const SizedBox(height: 8),
         const Text(
-          'Un ratito para jugar',
+          'Elige tu reto',
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800),
         ),
         const Padding(
           padding: EdgeInsets.symmetric(vertical: 14),
           child: Text(
-            'Mira, recuerda y encuentra las parejas.\n¡Cada partida es una nueva aventura!',
+            'Una nueva aventura en cada partida.',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 17, height: 1.5),
           ),
@@ -180,88 +241,156 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _gameBody(MemoryGame g) {
-    if (g.phase == Phase.won) return _victory(g);
-    return Column(
-      children: [
-        Wrap(
-          alignment: WrapAlignment.center,
-          spacing: 18,
-          runSpacing: 8,
+    if (g.phase == Phase.won) {
+      return _centeredContent(
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 620),
+          child: _victory(g),
+        ),
+      );
+    }
+    return LayoutBuilder(
+      builder: (_, constraints) {
+        final landscape =
+            constraints.maxWidth >= 650 && constraints.maxHeight < 440;
+        final stats = Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: .75),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: landscape
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _railStat(
+                      Icons.timer_outlined,
+                      formatTime(g.elapsed),
+                      'Tiempo',
+                    ),
+                    _railStat(
+                      Icons.touch_app_outlined,
+                      '${g.moves}',
+                      'Movimientos',
+                    ),
+                    _railStat(
+                      Icons.favorite_border,
+                      '${g.found}/${g.difficulty.pairs}',
+                      'Parejas',
+                    ),
+                  ],
+                )
+              : Row(
+                  children: [
+                    Expanded(
+                      child: _stat(
+                        Icons.timer_outlined,
+                        formatTime(g.elapsed),
+                        'Tiempo',
+                      ),
+                    ),
+                    Expanded(
+                      child: _stat(
+                        Icons.touch_app_outlined,
+                        '${g.moves}',
+                        'Movimientos',
+                      ),
+                    ),
+                    Expanded(
+                      child: _stat(
+                        Icons.favorite_border,
+                        '${g.found}/${g.difficulty.pairs}',
+                        'Parejas',
+                      ),
+                    ),
+                  ],
+                ),
+        );
+        final status = Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              g.phase == Phase.memorizing
+                  ? '¡Memoriza! ${g.countdown} segundos'
+                  : g.phase == Phase.hiding
+                  ? 'Preparados…'
+                  : g.busy
+                  ? 'Mira las cartas…'
+                  : 'Encuentra las parejas',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF605076),
+              ),
+              semanticsLabel: g.phase == Phase.memorizing
+                  ? 'Memoriza durante cinco segundos'
+                  : null,
+            ),
+          ),
+        );
+        final menu = OutlinedButton.icon(
+          onPressed: _menu,
+          icon: const Icon(Icons.home_outlined),
+          label: const Text('Menú'),
+        );
+        final restart = FilledButton.icon(
+          onPressed: g.restart,
+          icon: const Icon(Icons.refresh),
+          label: const Text('Reiniciar'),
+        );
+        final board = ResponsiveBoard(
+          count: g.cards.length,
+          itemBuilder: (_, index) => CardTile(
+            key: ValueKey('card-$index'),
+            card: g.cards[index],
+            index: index,
+            enabled: !g.busy && g.phase == Phase.playing,
+            onTap: () => _select(g, index),
+          ),
+        );
+        if (landscape) {
+          return Row(
+            children: [
+              SizedBox(
+                width: 184,
+                child: _centeredContent(
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      stats,
+                      status,
+                      menu,
+                      const SizedBox(height: 8),
+                      restart,
+                    ],
+                  ),
+                  verticalPadding: 0,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(child: board),
+            ],
+          );
+        }
+        return Column(
           children: [
-            _stat(Icons.timer_outlined, formatTime(g.elapsed), 'Tiempo'),
-            _stat(Icons.touch_app_outlined, '${g.moves}', 'Movimientos'),
-            _stat(
-              Icons.favorite_border,
-              '${g.found}/${g.difficulty.pairs}',
-              'Parejas',
+            stats,
+            status,
+            Expanded(child: board),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(child: menu),
+                const SizedBox(width: 12),
+                Expanded(child: restart),
+              ],
             ),
           ],
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          child: Text(
-            g.phase == Phase.memorizing
-                ? '¡Memoriza! ${g.countdown} segundos'
-                : g.phase == Phase.hiding
-                ? 'Preparados…'
-                : g.busy
-                ? 'Mira las cartas…'
-                : 'Encuentra las parejas',
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-            semanticsLabel: g.phase == Phase.memorizing
-                ? 'Memoriza durante cinco segundos'
-                : null,
-          ),
-        ),
-        Expanded(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final columns = constraints.maxWidth < 380
-                  ? 4
-                  : constraints.maxWidth < 600
-                  ? 5
-                  : 8;
-              return GridView.builder(
-                key: const ValueKey('board'),
-                itemCount: g.cards.length,
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: columns,
-                  crossAxisSpacing: 8,
-                  mainAxisSpacing: 8,
-                  childAspectRatio: .88,
-                ),
-                itemBuilder: (_, index) => CardTile(
-                  key: ValueKey('card-$index'),
-                  card: g.cards[index],
-                  index: index,
-                  enabled: !g.busy && g.phase == Phase.playing,
-                  onTap: () => _select(g, index),
-                ),
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: _menu,
-                icon: const Icon(Icons.home_outlined),
-                label: const Text('Menú'),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: FilledButton.icon(
-                onPressed: g.restart,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Reiniciar'),
-              ),
-            ),
-          ],
-        ),
-      ],
+        );
+      },
     );
   }
 
@@ -277,93 +406,109 @@ class _HomeScreenState extends State<HomeScreen> {
     if (records.sound && result != 'flip') playSound(result);
   }
 
-  Widget _stat(IconData icon, String value, String label) => Column(
-    children: [
-      Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 20, color: const Color(0xFF7961BC)),
-          const SizedBox(width: 6),
-          Text(
-            value,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-        ],
-      ),
-      Text(label, style: const TextStyle(fontSize: 12)),
-    ],
-  );
-  Widget _victory(MemoryGame g) => SingleChildScrollView(
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+  Widget _railStat(IconData icon, String value, String label) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 4),
+    child: Row(
       children: [
-        const SizedBox(height: 40),
-        TweenAnimationBuilder<double>(
-          tween: Tween(begin: .3, end: 1),
-          duration: const Duration(milliseconds: 700),
-          curve: Curves.elasticOut,
-          builder: (_, value, child) =>
-              Transform.scale(scale: value, child: child),
-          child: const Text(
-            '✨ 🏆 ✨',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 64),
-          ),
-        ),
-        const SizedBox(height: 22),
-        const Text(
-          '¡Lo has conseguido!',
-          textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: 12),
+        Icon(icon, size: 18, color: const Color(0xFF7961BC)),
+        const SizedBox(width: 6),
+        Expanded(child: Text(label, style: const TextStyle(fontSize: 11))),
         Text(
-          'Todas las parejas de ${g.difficulty.label.toLowerCase()}',
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 24),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              children: [
-                Text(
-                  '${g.score} puntos',
-                  style: const TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF7961BC),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Tiempo: ${formatTime(g.elapsed)}\nMovimientos: ${g.moves}',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 20, height: 1.7),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  records.available
-                      ? _recordText(g.difficulty)
-                      : 'El navegador no permite guardar récords en este momento.',
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 24),
-        FilledButton.icon(
-          onPressed: _start,
-          icon: const Icon(Icons.replay),
-          label: const Text('Jugar otra vez'),
-        ),
-        const SizedBox(height: 12),
-        OutlinedButton(
-          onPressed: _menu,
-          child: const Text('Elegir dificultad'),
+          value,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
       ],
     ),
+  );
+  Widget _stat(IconData icon, String value, String label) => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 20, color: const Color(0xFF7961BC)),
+            const SizedBox(width: 6),
+            Text(
+              value,
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+      ),
+      FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(label, style: const TextStyle(fontSize: 12)),
+      ),
+    ],
+  );
+  Widget _victory(MemoryGame g) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      const SizedBox(height: 40),
+      TweenAnimationBuilder<double>(
+        tween: Tween(begin: .3, end: 1),
+        duration: const Duration(milliseconds: 700),
+        curve: Curves.elasticOut,
+        builder: (_, value, child) =>
+            Transform.scale(scale: value, child: child),
+        child: const Text(
+          '✨ 🏆 ✨',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 64),
+        ),
+      ),
+      const SizedBox(height: 22),
+      const Text(
+        '¡Lo has conseguido!',
+        textAlign: TextAlign.center,
+        style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800),
+      ),
+      const SizedBox(height: 12),
+      Text(
+        'Todas las parejas de ${g.difficulty.label.toLowerCase()}',
+        textAlign: TextAlign.center,
+      ),
+      const SizedBox(height: 24),
+      Card(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            children: [
+              Text(
+                '${g.score} puntos',
+                style: const TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF7961BC),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Tiempo: ${formatTime(g.elapsed)}\nMovimientos: ${g.moves}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 20, height: 1.7),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                records.available
+                    ? _recordText(g.difficulty)
+                    : 'El navegador no permite guardar récords en este momento.',
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+      const SizedBox(height: 24),
+      FilledButton.icon(
+        onPressed: _start,
+        icon: const Icon(Icons.replay),
+        label: const Text('Jugar otra vez'),
+      ),
+      const SizedBox(height: 12),
+      OutlinedButton(onPressed: _menu, child: const Text('Elegir dificultad')),
+    ],
   );
 }
