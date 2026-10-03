@@ -6,3 +6,6 @@ bool writeValue(String key, String value) {
 }
 
 void playSound(String kind) {}
+
+bool pronounceLetter(String name, String? asset) => true;
+void stopAudio() {}

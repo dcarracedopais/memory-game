@@ -9,15 +9,19 @@ import '../widgets/game_background.dart';
 import '../widgets/cover.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, this.faceLoader});
+  final Future<List<String>> Function()? faceLoader;
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
   final records = Records();
-  Difficulty difficulty = Difficulty.veryEasy;
+  Difficulty difficulty = Difficulty.easy;
   List<String> faces = [];
+  Map<String, String> letterAudio = {};
+  ContentMode mode = ContentMode.letters;
+  bool speechNoticeShown = false;
   MemoryGame? game;
   bool loading = true;
   bool showingCover = true;
@@ -28,24 +32,39 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _load() async {
-    final loaded = await loadFaces();
+    final loaded = await (widget.faceLoader ?? loadFaces)();
+    final audio = await loadLetterAudio();
     if (mounted) {
       setState(() {
         faces = loaded;
+        letterAudio = audio;
+        mode = records.preferredMode;
+        _ensureModeAvailable();
         loading = false;
       });
     }
   }
 
+  bool get imagesAvailable => faces.toSet().length >= difficulty.pairs;
+  void _ensureModeAvailable() {
+    if (mode == ContentMode.images && !imagesAvailable) {
+      mode = ContentMode.letters;
+    }
+    records.rememberMode(mode);
+  }
+
   void _start() {
+    if (loading || (mode == ContentMode.images && !imagesAvailable)) return;
+    stopAudio();
     game?.dispose();
     setState(() {
       showingCover = false;
-      game = MemoryGame(difficulty, faces);
+      game = MemoryGame(difficulty, faces, mode: mode);
     });
   }
 
   void _menu() {
+    stopAudio();
     game?.dispose();
     setState(() {
       game = null;
@@ -55,6 +74,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    stopAudio();
     game?.dispose();
     super.dispose();
   }
@@ -118,6 +138,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   : 'Activar sonido',
                               onPressed: () {
                                 setState(records.toggleSound);
+                                if (!records.sound) stopAudio();
                                 if (records.sound) playSound('flip');
                               },
                               icon: Icon(
@@ -202,7 +223,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),
-                onTap: () => setState(() => difficulty = level),
+                onTap: () => setState(() {
+                  difficulty = level;
+                  _ensureModeAvailable();
+                }),
                 leading: Icon(
                   difficulty == level
                       ? Icons.radio_button_checked
@@ -218,8 +242,17 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         const SizedBox(height: 12),
+        _contentOptions(),
+        const SizedBox(height: 12),
+        Text(
+          '${difficulty.label} · ${difficulty.pairs} parejas · ${mode.label}',
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 12),
         FilledButton.icon(
-          onPressed: loading ? null : _start,
+          onPressed: loading || (mode == ContentMode.images && !imagesAvailable)
+              ? null
+              : _start,
           icon: const Icon(Icons.play_arrow_rounded),
           label: Text(loading ? 'Preparando cartas…' : '¡A jugar!'),
         ),
@@ -233,8 +266,69 @@ class _HomeScreenState extends State<HomeScreen> {
       ],
     ),
   );
+  Widget _contentOptions() => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            '¿Con qué jugamos?',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              for (final option in ContentMode.values) ...[
+                if (option == ContentMode.images) const SizedBox(width: 12),
+                Expanded(
+                  child: Semantics(
+                    selected: mode == option,
+                    child: OutlinedButton.icon(
+                      key: ValueKey('mode-${option.name}'),
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: mode == option
+                            ? const Color(0xFFECE3FA)
+                            : null,
+                      ),
+                      onPressed:
+                          loading ||
+                              (option == ContentMode.images && !imagesAvailable)
+                          ? null
+                          : () => setState(() {
+                              mode = option;
+                              records.rememberMode(mode);
+                            }),
+                      icon: Icon(
+                        option == ContentMode.letters
+                            ? Icons.abc_rounded
+                            : Icons.image_outlined,
+                      ),
+                      label: Text(option.label),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            loading
+                ? 'Preparando las opciones…'
+                : faces.isEmpty
+                ? 'Jugamos con letras. Las imágenes aún no están disponibles.'
+                : !imagesAvailable
+                ? 'Jugamos con letras: hay ${faces.length} imágenes y este reto necesita ${difficulty.pairs}.'
+                : 'Elige letras o imágenes para este reto.',
+            style: const TextStyle(fontSize: 13),
+          ),
+        ],
+      ),
+    ),
+  );
+
   String _recordText(Difficulty level) {
-    final r = records.get(level);
+    final r = records.get(level, mode);
     return r == null
         ? 'Tu primer récord te espera'
         : 'Récords: ${formatTime(Duration(milliseconds: r.milliseconds))} · ${r.moves} movimientos';
@@ -336,7 +430,10 @@ class _HomeScreenState extends State<HomeScreen> {
           label: const Text('Menú'),
         );
         final restart = FilledButton.icon(
-          onPressed: g.restart,
+          onPressed: () {
+            stopAudio();
+            g.restart();
+          },
           icon: const Icon(Icons.refresh),
           label: const Text('Reiniciar'),
         );
@@ -395,8 +492,29 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _select(MemoryGame g, int index) async {
-    // Audio starts in the user gesture so mobile browsers can unlock it.
-    if (records.sound) playSound('flip');
+    if (!g.canSelect(index)) return;
+    // Start in the user gesture; ignore rejected selections and preview cards.
+    if (records.sound) {
+      if (g.mode == ContentMode.letters) {
+        final letter = g.cards[index].face.substring(7);
+        final accepted = pronounceLetter(
+          letterNames[letter]!,
+          letterAudio[letter],
+        );
+        if (!accepted && !speechNoticeShown) {
+          speechNoticeShown = true;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Este navegador no tiene una voz española disponible. Puedes seguir jugando.',
+              ),
+            ),
+          );
+        }
+      } else {
+        playSound('flip');
+      }
+    }
     final result = await g.select(index);
     if (!mounted || game != g || result == null) return;
     if (result == 'win') {
@@ -467,7 +585,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       const SizedBox(height: 12),
       Text(
-        'Todas las parejas de ${g.difficulty.label.toLowerCase()}',
+        '${g.difficulty.label} · ${g.mode.label} · ${g.difficulty.pairs} parejas',
         textAlign: TextAlign.center,
       ),
       const SizedBox(height: 24),

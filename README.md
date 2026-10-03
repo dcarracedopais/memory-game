@@ -1,6 +1,6 @@
 # MeriMemory
 
-Un juego de Memory para disfrutar en móvil, tablet y escritorio, hecho con Flutter Web. Interfaz en español, cuatro dificultades (5, 10, 15 y 20 parejas), vista inicial de 5 segundos, giros animados, parejas que desaparecen y celebración final.
+Un juego de Memory para disfrutar en móvil, tablet y escritorio, hecho con Flutter Web. Interfaz en español, tres dificultades: Fácil (6 parejas), Normal (10) y Difícil (15), vista inicial de 5 segundos, giros animados, parejas que desaparecen y celebración final.
 
 ## Ejecutar
 
@@ -58,13 +58,33 @@ La entrada muestra una portada con acceso al sonido y el botón **Jugar**. Despu
 
 El tablero compara filas y columnas según el número de cartas y el ancho y alto disponibles. Maximiza el tamaño de las cartas, penaliza filas incompletas y mantiene una proporción de 0,88 y un máximo de 190 px de ancho. Centra el conjunto y la última fila; las parejas desaparecidas conservan su espacio. En horizontal, los controles pasan al lateral cuando hay ancho suficiente. Solo ventanas excepcionalmente pequeñas necesitan desplazamiento dentro del tablero.
 
-Los fondos usan gradientes y formas suaves dibujadas por Flutter, sin imágenes ni dependencias nuevas. Durante la partida son más discretos. El service worker usa la versión de caché `merimemory-v2` para esta iteración.
+Los fondos usan gradientes y formas suaves dibujadas por Flutter, sin imágenes ni dependencias nuevas. Durante la partida son más discretos. El service worker usa la versión de caché `merimemory-v3` para esta iteración.
 
 Los tests cubren también el centrado y los límites del tablero para todas las dificultades en 320×568, 390×844, 768×1024, 1440×900 y 844×390, además de la navegación desde la portada y la conservación de cartas al girar el dispositivo.
 
-## Cartas personalizadas
+## Letras e imágenes
 
-Añade imágenes PNG, JPG/JPEG, WebP o GIF directamente en `assets/cards/` y vuelve a generar la aplicación. No necesitas cambiar código ni declarar cada archivo. Todas las imágenes disponibles participan en la selección aleatoria; cada partida elige las necesarias sin repetir identidades. Si faltan imágenes, se completan con placeholders de letras mayúsculas. Las imágenes se muestran sin distorsión. Consulta `assets/cards/README.md`.
+En la selección de partida se eligen de forma independiente la dificultad y el contenido. **Letras** selecciona al azar letras distintas del alfabeto español de 27 letras, incluida la Ñ; crea dos cartas por letra y baraja el tablero. Reiniciar y jugar otra vez vuelven a seleccionar letras.
+
+**Imágenes** solo se habilita si hay suficientes imágenes válidas para la dificultad elegida. Añade PNG, JPG/JPEG, WebP o GIF directamente en `assets/cards/` y vuelve a generar la aplicación. El manifest descubre todos los archivos y se comprueba que Flutter puede decodificarlos. Cada imagen es una identidad de pareja; evita copias de la misma foto con nombres distintos. Se muestran sin distorsión.
+
+Si no hay imágenes, Letras queda seleccionado e Imágenes deshabilitado. Si eliges un nivel que necesita más imágenes de las disponibles, la selección vuelve a Letras y el menú explica cuántas faltan. Nunca se completan partidas de imágenes con letras. La preferencia de contenido se recuerda, pero se vuelve a validar al abrir la aplicación. Un fallo de imagen durante el juego muestra un icono de imagen no disponible, sin convertirla en letra.
+
+## Pronunciación de letras
+
+Al descubrir una carta válida en modo Letras se envía el **nombre explícito** de la letra, definido en `lib/models/content.dart`: hache, jota, eñe, erre, uve doble, ye, etc. No se pronuncia durante la memorización ni por reconstrucciones de widgets, cartas rechazadas o parejas ya encontradas. Los nombres siguen el uso español y las [recomendaciones de la RAE](https://www.rae.es/consultas/un-solo-nombre-para-cada-letra).
+
+Se usa primero el MP3 local correspondiente, si está incluido. En su defecto, Web Speech utiliza una **voz española local**, preferentemente `es-ES`, instalada en el navegador o sistema. No se eligen voces remotas. La lista se consulta de nuevo cuando el navegador actualiza sus voces. Véase [Web Speech y voces locales](https://developer.mozilla.org/en-US/docs/Web/API/SpeechSynthesisVoice/localService).
+
+**No hacen falta audios adicionales si el dispositivo tiene voz española local.** Este repositorio no incluye grabaciones de terceros. En Chrome de Linux sin voz española instalada, el juego indica que no dispone de pronunciación y continúa normalmente. Para garantizar la misma voz en todos los dispositivos, añade grabaciones propias o con licencia adecuada siguiendo `assets/audio/letters/README.md`: hay 27 MP3 opcionales, con `enye.mp3` para Ñ. No se han descargado ni generado grabaciones de procedencia desconocida.
+
+La pronunciación sustituye el efecto de giro en Letras; Imágenes mantiene ese efecto. Los efectos de acierto, fallo y victoria esperan a que termine la pronunciación para evitar solapamientos. Las palabras se reproducen secuencialmente con una cola corta. Desactivar sonido, reiniciar o abandonar la partida cancela la voz y los efectos pendientes. Sonido desactivado significa silencio en ambos modos. Si el navegador bloquea audio, el juego sigue funcionando.
+
+Para comprobar también el puente de audio del navegador sin dependencias adicionales (Node.js):
+
+```bash
+node test/browser_audio_test.cjs
+```
 
 ## Juego y récords
 
@@ -72,9 +92,9 @@ El tiempo empieza después de ocultar la vista inicial. Cada intento de dos cart
 
 Puntuación: máximo entre cero y `parejas × 1000 − movimientos × 50 − segundos × 5`.
 
-Los mejores tiempos y movimientos se guardan **independientemente** para cada dificultad en localStorage, junto con la preferencia de sonido. Persisten tras recargar en el mismo navegador y origen. Borrar los datos del sitio los elimina. Si el navegador bloquea el almacenamiento, puedes seguir jugando y se indica que no se guardó el resultado.
+Los mejores tiempos y movimientos se guardan **independientemente** para cada combinación de modo y número de parejas en localStorage (claves `meri.record.v3.<modo>.<parejas>`), junto con la preferencia de sonido. Los récords de las configuraciones anteriores no se reutilizan ni se migran. Persisten tras recargar en el mismo navegador y origen. Borrar los datos del sitio los elimina. Si el navegador bloquea el almacenamiento, puedes seguir jugando y se indica que no se guardó el resultado.
 
-Los sonidos se sintetizan localmente con Web Audio, sin descargas ni paquetes. El primer toque desbloquea el audio; las restricciones del navegador pueden impedirlo y nunca interrumpen el juego.
+Los efectos se sintetizan localmente con Web Audio, sin descargas ni paquetes. El primer toque desbloquea el audio; las restricciones del navegador pueden impedirlo y nunca interrumpen el juego.
 
 ## PWA
 

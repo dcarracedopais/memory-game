@@ -68,14 +68,10 @@ class CardTile extends StatelessWidget {
                                 : Image.asset(
                                     card.face,
                                     fit: BoxFit.contain,
-                                    errorBuilder: (_, _, _) => _letter(
-                                      String.fromCharCode(
-                                        65 +
-                                            card.face.codeUnits.fold<int>(
-                                                  0,
-                                                  (sum, unit) => sum + unit,
-                                                ) %
-                                                26,
+                                    errorBuilder: (_, _, _) => const Center(
+                                      child: Icon(
+                                        Icons.broken_image_outlined,
+                                        color: Color(0xFF7961BC),
                                       ),
                                     ),
                                   ),

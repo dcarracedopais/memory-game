@@ -23,6 +23,7 @@ void main() {
       final game = MemoryGame(
         difficulty,
         List.generate(27, (i) => 'image$i'),
+        mode: ContentMode.images,
         random: Random(4),
       );
       expect(game.cards.length, difficulty.pairs * 2);
@@ -38,7 +39,7 @@ void main() {
   testWidgets(
     'Memory preview, animation locks, same card rejection and mismatch',
     (tester) async {
-      final game = MemoryGame(Difficulty.veryEasy, []);
+      final game = MemoryGame(Difficulty.easy, []);
       expect(await game.select(0), isNull);
       expect(game.moves, 0);
       await ready(tester, game);
@@ -64,7 +65,7 @@ void main() {
   testWidgets(
     'Matches disappear, victory stops play, restart resets everything',
     (tester) async {
-      final game = MemoryGame(Difficulty.veryEasy, []);
+      final game = MemoryGame(Difficulty.easy, []);
       await ready(tester, game);
       for (final face in game.cards.map((c) => c.face).toSet()) {
         final indices = [
@@ -77,8 +78,8 @@ void main() {
         expect(game.cards[indices[0]].matched, isTrue);
       }
       expect(game.phase, Phase.won);
-      expect(game.moves, 5);
-      expect(game.found, 5);
+      expect(game.moves, 6);
+      expect(game.found, 6);
       expect(await game.select(0), isNull);
       game.restart();
       expect(game.phase, Phase.memorizing);
@@ -90,7 +91,7 @@ void main() {
     },
   );
   testWidgets('Restart cancels pending comparisons', (tester) async {
-    final game = MemoryGame(Difficulty.veryEasy, []);
+    final game = MemoryGame(Difficulty.easy, []);
     await ready(tester, game);
     await choose(tester, game, 0);
     final pair = game.cards.indexWhere(

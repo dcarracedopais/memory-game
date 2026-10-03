@@ -1,12 +1,13 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
+import 'content.dart';
+export 'content.dart';
 
 enum Difficulty {
-  veryEasy('Muy fácil', 5),
-  easy('Fácil', 10),
-  medium('Medio', 15),
-  hard('Difícil', 20);
+  easy('Fácil', 6),
+  normal('Normal', 10),
+  hard('Difícil', 15);
 
   const Difficulty(this.label, this.pairs);
   final String label;
@@ -23,13 +24,18 @@ class MemoryCard {
 }
 
 class MemoryGame extends ChangeNotifier {
-  MemoryGame(this.difficulty, this.faces, {Random? random})
-    : random = random ?? Random() {
+  MemoryGame(
+    this.difficulty,
+    this.faces, {
+    this.mode = ContentMode.letters,
+    Random? random,
+  }) : random = random ?? Random() {
     restart();
   }
   final Difficulty difficulty;
   final List<String> faces;
   final Random random;
+  final ContentMode mode;
   late List<MemoryCard> cards;
   Phase phase = Phase.memorizing;
   int moves = 0, found = 0, countdown = 5;
@@ -48,10 +54,14 @@ class MemoryGame extends ChangeNotifier {
     watch
       ..stop()
       ..reset();
-    final pool = faces.toSet().toList()..shuffle(random);
-    for (var i = 0; pool.length < difficulty.pairs; i++) {
-      final fallback = 'letter:${String.fromCharCode(65 + i)}';
-      if (!pool.contains(fallback)) pool.add(fallback);
+    final pool = mode == ContentMode.letters
+        ? selectLetters(
+            difficulty.pairs,
+            random,
+          ).map((letter) => 'letter:$letter').toList()
+        : (faces.toSet().toList()..shuffle(random));
+    if (pool.length < difficulty.pairs) {
+      throw StateError('No hay suficientes imágenes para esta dificultad.');
     }
     cards = [
       for (final face in pool.take(difficulty.pairs)) ...[
@@ -92,15 +102,15 @@ class MemoryGame extends ChangeNotifier {
   }
 
   bool _alive(int generation) => !_disposed && generation == _generation;
+  bool canSelect(int index) =>
+      phase == Phase.playing &&
+      !busy &&
+      index >= 0 &&
+      index < cards.length &&
+      !cards[index].revealed &&
+      !cards[index].matched;
   Future<String?> select(int index) async {
-    if (phase != Phase.playing ||
-        busy ||
-        index < 0 ||
-        index >= cards.length ||
-        cards[index].revealed ||
-        cards[index].matched) {
-      return null;
-    }
+    if (!canSelect(index)) return null;
     final generation = _generation;
     busy = true;
     cards[index].revealed = true;

@@ -5,8 +5,14 @@ import 'package:merimemory/models/game.dart';
 import 'package:merimemory/widgets/memory_card.dart';
 import 'package:merimemory/widgets/board_layout.dart';
 import 'package:merimemory/services/records.dart';
+import 'package:merimemory/services/browser.dart';
+import 'package:merimemory/screens/home.dart';
 
 void main() {
+  setUp(() {
+    writeValue('meri.mode', 'letters');
+    writeValue('meri.sound', 'off');
+  });
   testWidgets('Full mobile flow saves records and starts another game', (
     tester,
   ) async {
@@ -19,8 +25,7 @@ void main() {
     expect(find.text('Jugar'), findsOneWidget);
     await tester.tap(find.text('Jugar'));
     await tester.pumpAndSettle();
-    expect(find.text('Muy fácil · 5 parejas'), findsOneWidget);
-    await tester.ensureVisible(find.text('¡A jugar!'));
+    expect(find.text('Fácil · 6 parejas'), findsOneWidget);
     await tester.ensureVisible(find.text('¡A jugar!'));
     await tester.tap(find.text('¡A jugar!'));
     await tester.pump();
@@ -40,7 +45,7 @@ void main() {
       await tester.pump();
     }
     expect(find.text('¡Lo has conseguido!'), findsOneWidget);
-    expect(Records().get(Difficulty.veryEasy)?.moves, 5);
+    expect(Records().get(Difficulty.easy)?.moves, 6);
     await tester.ensureVisible(find.text('Jugar otra vez'));
     await tester.tap(find.text('Jugar otra vez'));
     await tester.pump();
@@ -131,4 +136,110 @@ void main() {
     await tester.tap(find.text('Menú'));
     await tester.pumpAndSettle();
   });
+  testWidgets(
+    'Without images, only letters are selectable and stored images reset',
+    (tester) async {
+      writeValue('meri.mode', 'images');
+      await tester.pumpWidget(
+        MaterialApp(home: HomeScreen(faceLoader: () async => [])),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Jugar'));
+      await tester.pumpAndSettle();
+      final images = tester.widget<OutlinedButton>(
+        find.byKey(const ValueKey('mode-images')),
+      );
+      expect(images.onPressed, isNull);
+      expect(
+        find.text('Jugamos con letras. Las imágenes aún no están disponibles.'),
+        findsOneWidget,
+      );
+      expect(Records().preferredMode, ContentMode.letters);
+      await tester.ensureVisible(find.text('¡A jugar!'));
+      await tester.tap(find.text('¡A jugar!'));
+      await tester.pump();
+      expect(
+        tester
+            .widgetList<CardTile>(find.byType(CardTile))
+            .every((c) => c.card.face.startsWith('letter:')),
+        isTrue,
+      );
+      await tester.tap(find.text('Menú'));
+      await tester.pumpAndSettle();
+    },
+  );
+  testWidgets(
+    'Six images enable Easy, disabling larger levels resets to letters',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: HomeScreen(
+            faceLoader: () async =>
+                List.generate(6, (i) => 'assets/cards/photo$i.png'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Jugar'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Imágenes'));
+      await tester.tap(find.text('Imágenes'));
+      await tester.pump();
+      expect(Records().preferredMode, ContentMode.images);
+      await tester.ensureVisible(find.text('¡A jugar!'));
+      await tester.tap(find.text('¡A jugar!'));
+      await tester.pump();
+      expect(
+        tester
+            .widgetList<CardTile>(find.byType(CardTile))
+            .every((c) => !c.card.face.startsWith('letter:')),
+        isTrue,
+      );
+      await tester.tap(find.text('Reiniciar'));
+      await tester.pump();
+      expect(find.byType(CardTile), findsNWidgets(12));
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pump(const Duration(milliseconds: 400));
+      final cards = tester.widgetList<CardTile>(find.byType(CardTile)).toList();
+      for (final face in cards.map((c) => c.card.face).toSet()) {
+        for (final card in cards.where((c) => c.card.face == face)) {
+          await tester.tap(find.byKey(ValueKey('card-${card.index}')));
+          await tester.pump(const Duration(milliseconds: 320));
+        }
+        await tester.pump(const Duration(milliseconds: 350));
+        await tester.pump(const Duration(milliseconds: 320));
+        await tester.pump();
+      }
+      expect(find.text('¡Lo has conseguido!'), findsOneWidget);
+      expect(Records().get(Difficulty.easy, ContentMode.images)?.moves, 6);
+      await tester.ensureVisible(find.text('Jugar otra vez'));
+      await tester.tap(find.text('Jugar otra vez'));
+      await tester.pump();
+      expect(
+        tester
+            .widgetList<CardTile>(find.byType(CardTile))
+            .every((c) => !c.card.face.startsWith('letter:')),
+        isTrue,
+      );
+      await tester.tap(find.text('Menú'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Difícil · 15 parejas'));
+      await tester.tap(find.text('Difícil · 15 parejas'));
+      await tester.pump();
+      expect(
+        tester
+            .widget<OutlinedButton>(find.byKey(const ValueKey('mode-images')))
+            .onPressed,
+        isNull,
+      );
+      expect(Records().preferredMode, ContentMode.letters);
+      expect(
+        find.text(
+          'Jugamos con letras: hay 6 imágenes y este reto necesita 15.',
+        ),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

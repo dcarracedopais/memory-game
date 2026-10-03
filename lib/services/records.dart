@@ -10,10 +10,10 @@ class Record {
 class Records {
   bool sound = readValue('meri.sound') != 'off';
   bool available = true;
-  Record? get(Difficulty difficulty) {
+  Record? get(Difficulty difficulty, [ContentMode mode = ContentMode.letters]) {
     try {
       final value = jsonDecode(
-        readValue('meri.record.${difficulty.name}') ?? 'null',
+        readValue('meri.record.v3.${mode.name}.${difficulty.pairs}') ?? 'null',
       );
       if (value is Map && value['time'] is int && value['moves'] is int) {
         return Record(value['time'] as int, value['moves'] as int);
@@ -25,9 +25,9 @@ class Records {
   }
 
   void save(MemoryGame game) {
-    final old = get(game.difficulty);
+    final old = get(game.difficulty, game.mode);
     available = writeValue(
-      'meri.record.${game.difficulty.name}',
+      'meri.record.v3.${game.mode.name}.${game.difficulty.pairs}',
       jsonEncode({
         'time': old == null
             ? game.elapsed.inMilliseconds
@@ -41,6 +41,13 @@ class Records {
             : game.moves,
       }),
     );
+  }
+
+  ContentMode get preferredMode => readValue('meri.mode') == 'images'
+      ? ContentMode.images
+      : ContentMode.letters;
+  void rememberMode(ContentMode mode) {
+    writeValue('meri.mode', mode.name);
   }
 
   void toggleSound() {
